@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 3.1%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 6.7%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 6.7%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 72 100% 50%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 10.2%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 10.2%;
+    --muted-foreground: 0 0% 54%;
+    --accent: 72 100% 50%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 10.2%;
+    --input: 0 0% 10.2%;
+    --ring: 72 100% 50%;
+    --radius: 0.25rem;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  ::selection {
+    background-color: #C8FF00;
+    color: #080808;
+  }
+}
+
+@layer utilities {
+
+  .font-display {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  .font-body {
+    font-family: 'Inter', sans-serif;
+  }
+
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  @keyframes floatSlow {
+    0% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    50% {
+      transform: translate3d(80px, 60px, 0) scale(1.08);
+    }
+
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  @keyframes floatReverse {
+    0% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    50% {
+      transform: translate3d(-70px, -50px, 0) scale(1.05);
+    }
+
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  .animate-float-slow {
+    animation: floatSlow 12s ease-in-out infinite;
+  }
+
+  .animate-float-reverse {
+    animation: floatReverse 15s ease-in-out infinite;
+  }
+
+  .noise {
+    background-image:
+      radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+
+    background-size: 4px 4px;
+  }
+}
