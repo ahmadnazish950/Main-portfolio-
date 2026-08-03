@@ -5,8 +5,8 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 gsap.registerPlugin(ScrollTrigger)
 
 const socials = [
-  { name: 'GitHub', href: '#' },
-  { name: 'LinkedIn', href: '#' },
+  { name: 'GitHub', href: 'https://github.com/ahmadnazish950' },
+  { name: 'LinkedIn', href: 'https://linkedin.com/in/ahmad-yusuf-5523a7338?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base%3BxmjkwwqOT1%2BJ8FiQIfQUkg%3D%3D' },
   { name: 'Twitter', href: '#' },
   { name: 'Dribbble', href: '#' },
 ]
