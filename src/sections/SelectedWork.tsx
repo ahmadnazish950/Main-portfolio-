@@ -5,6 +5,9 @@ import ProjectDetail, { type Project } from './ProjectDetail'
 
 gsap.registerPlugin(ScrollTrigger)
 
+
+const LIME_RGB = '166, 255, 61' 
+
 const projects: Project[] = [
   {
     id: '01',
@@ -79,7 +82,7 @@ const projects: Project[] = [
         body: 'ImageKit handles image storage and delivery, keeping the feed fast to load regardless of upload size or device.',
       },
     ],
-    liveUrl: 'https://your-deployed-roll-link.com',
+    liveUrl: 'https://get-rolled.vercel.app/',
   },
 ]
 
@@ -88,14 +91,9 @@ const filters = ['All', 'Web', 'AI', 'Design']
 export default function SelectedWork() {
   const sectionRef = useRef<HTMLElement>(null)
   const headerRef = useRef<HTMLDivElement>(null)
-  const rowsRef = useRef<(HTMLDivElement | null)[]>([])
+  const cardsRef = useRef<(HTMLDivElement | null)[]>([])
   const [activeFilter, setActiveFilter] = useState('All')
-  const [hoveredProject, setHoveredProject] = useState<number | null>(null)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
-  const previewRef = useRef<HTMLDivElement>(null)
-  const mousePos = useRef({ x: 0, y: 0 })
-  const previewPos = useRef({ x: 0, y: 0 })
-  const rafRef = useRef<number>(0)
 
   const filteredProjects =
     activeFilter === 'All'
@@ -119,17 +117,17 @@ export default function SelectedWork() {
         },
       })
 
-      rowsRef.current.forEach((row, i) => {
-        if (!row) return
-        gsap.from(row, {
-          x: -60,
+      cardsRef.current.forEach((card, i) => {
+        if (!card) return
+        gsap.from(card, {
+          y: 40,
           opacity: 0,
-          duration: 0.8,
-          delay: i * 0.1,
+          duration: 0.7,
+          delay: (i % 3) * 0.1,
           ease: 'power3.out',
           scrollTrigger: {
-            trigger: row,
-            start: 'top 90%',
+            trigger: card,
+            start: 'top 92%',
           },
         })
       })
@@ -137,28 +135,6 @@ export default function SelectedWork() {
 
     return () => ctx.revert()
   }, [filteredProjects, selectedProject])
-
-  useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => {
-      mousePos.current = { x: e.clientX, y: e.clientY }
-    }
-    window.addEventListener('mousemove', onMouseMove)
-
-    const animate = () => {
-      if (previewRef.current && hoveredProject !== null) {
-        previewPos.current.x += (mousePos.current.x - previewPos.current.x) * 0.1
-        previewPos.current.y += (mousePos.current.y - previewPos.current.y) * 0.1
-        previewRef.current.style.transform = `translate(${previewPos.current.x + 20}px, ${previewPos.current.y - 80}px)`
-      }
-      rafRef.current = requestAnimationFrame(animate)
-    }
-    rafRef.current = requestAnimationFrame(animate)
-
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove)
-      cancelAnimationFrame(rafRef.current)
-    }
-  }, [hoveredProject])
 
   if (selectedProject) {
     return (
@@ -179,7 +155,10 @@ export default function SelectedWork() {
         <span className="font-mono text-xs tracking-[0.15em] text-text-secondary mb-4 block">
           SELECTED WORK
         </span>
-        <h2 className="font-display font-medium tracking-[-0.02em] text-white" style={{ fontSize: 'clamp(2.25rem, 6vw, 4rem)' }}>
+        <h2
+          className="font-display font-medium tracking-[-0.02em] text-white"
+          style={{ fontSize: 'clamp(2.25rem, 6vw, 4rem)' }}
+        >
           Projects
         </h2>
       </div>
@@ -204,71 +183,99 @@ export default function SelectedWork() {
         ))}
       </div>
 
-      <div className="flex flex-col">
-        {filteredProjects.map((project, i) => (
-          <div
-            key={project.id}
-            ref={(el) => { rowsRef.current[i] = el }}
-            className="group border-t border-border-subtle py-8 lg:py-10 cursor-pointer"
-            onMouseEnter={() => {
-              setHoveredProject(i)
-              previewPos.current = mousePos.current
-            }}
-            onMouseLeave={() => setHoveredProject(null)}
-            onClick={() => setSelectedProject(project)}
-          >
-            <div className="flex items-center justify-between gap-6">
-              <div className="flex items-center gap-6 lg:gap-10">
-                <span className="font-mono text-xs text-text-secondary w-8">
-                  {project.id}
+      {/* Project grid — bento pattern: every group of 3 is 1 featured + 2 half.
+          Repeats automatically as more projects are added (i=3 is featured again, i=4,5 are the half pair, etc). */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 lg:gap-8">
+        {filteredProjects.map((project, i) => {
+          const isFeatured = i % 3 === 0
+
+          return (
+            <div
+              key={project.id}
+              ref={(el) => { cardsRef.current[i] = el }}
+              onClick={() => setSelectedProject(project)}
+              className={`project-card group relative border border-white/10 bg-white/[0.03] backdrop-blur-xl overflow-hidden cursor-pointer transition-all duration-500 hover:border-lime/40 hover:-translate-y-1.5 ${
+                isFeatured ? 'sm:col-span-2' : 'sm:col-span-1'
+              }`}
+            >
+              {/* Glassy green grid hover layer */}
+              <div
+                className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                style={{
+                  backgroundImage: `linear-gradient(rgba(${LIME_RGB}, 0.16) 1px, transparent 1px), linear-gradient(90deg, rgba(${LIME_RGB}, 0.16) 1px, transparent 1px)`,
+                  backgroundSize: '22px 22px',
+                  maskImage: 'radial-gradient(circle at 50% 40%, black, transparent 75%)',
+                  WebkitMaskImage: 'radial-gradient(circle at 50% 40%, black, transparent 75%)',
+                }}
+              />
+
+              {/* Ambient lime glow on hover */}
+              <div
+                className="pointer-events-none absolute -inset-px rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                style={{
+                  boxShadow: `0 0 40px -8px rgba(${LIME_RGB}, 0.35)`,
+                }}
+              />
+
+              {/* Image */}
+              <div
+                className={`relative overflow-hidden ${
+                  isFeatured ? 'aspect-[21/9] lg:aspect-[2.6/1]' : 'aspect-[4/3]'
+                }`}
+              >
+                <img
+                  src={project.image}
+                  alt={project.name}
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-void via-void/10 to-transparent" />
+
+                <span className="absolute top-4 left-4 font-mono text-[10px] tracking-widest text-white/80 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
+                  {project.category}
                 </span>
+                <span className="absolute top-4 right-4 font-mono text-[10px] tracking-widest text-white/60 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
+                  {project.year}
+                </span>
+              </div>
+
+              {/* Content */}
+              <div className={`relative p-6 flex flex-col gap-3 ${isFeatured ? 'lg:p-8' : ''}`}>
                 <h3
-                  className="font-display font-medium text-white group-hover:translate-x-4 transition-transform duration-500 ease-out"
-                  style={{ fontSize: 'clamp(1.5rem, 5vw, 3rem)' }}
+                  className={`font-display font-medium text-white tracking-tight group-hover:text-lime transition-colors duration-300 ${
+                    isFeatured ? 'text-3xl lg:text-4xl' : 'text-2xl'
+                  }`}
                 >
                   {project.name}
                 </h3>
-              </div>
-              <div className="hidden lg:flex items-center gap-12">
-                <span className="font-mono text-xs tracking-wide text-text-secondary px-3 py-1 border border-border-subtle rounded">
-                  {project.category}
-                </span>
-                <span className="font-mono text-xs text-text-secondary w-12">
-                  {project.year}
-                </span>
-                <svg
-                  className="w-5 h-5 text-text-secondary group-hover:text-lime group-hover:translate-x-1 transition-all duration-300"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
+                <p
+                  className={`text-sm leading-relaxed text-white/55 ${isFeatured ? 'max-w-2xl' : ''}`}
+                  style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: isFeatured ? 2 : 3,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M17 8l4 4m0 0l-4 4m4-4H3"
-                  />
-                </svg>
+                  {project.description}
+                </p>
+
+                <div className="mt-2 flex items-center gap-2 font-mono text-xs tracking-[0.1em] text-lime opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
+                  VIEW PROJECT
+                  <svg
+                    className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform duration-300"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-        <div className="border-t border-border-subtle" />
+          )
+        })}
       </div>
-
-      {hoveredProject !== null && filteredProjects[hoveredProject] && (
-        <div
-          ref={previewRef}
-          className="fixed top-0 left-0 pointer-events-none z-30 w-72 h-44 overflow-hidden rounded border border-border-subtle"
-          style={{ opacity: 0.9 }}
-        >
-          <img
-            src={filteredProjects[hoveredProject].image}
-            alt=""
-            className="w-full h-full object-cover"
-          />
-        </div>
-      )}
     </section>
   )
 }
