@@ -1,173 +1,188 @@
-import { useEffect, useRef } from 'react'
+import { useRef, useMemo, useEffect } from 'react'
+import { Canvas, useFrame, extend } from '@react-three/fiber'
+import { Effects } from '@react-three/drei'
+import { UnrealBloomPass } from 'three-stdlib'
+import * as THREE from 'three'
 
-interface Particle {
-  x: number
-  y: number
-  vx: number
-  vy: number
-  r: number
+extend({ UnrealBloomPass })
+
+declare module '@react-three/fiber' {
+  interface ThreeElements {
+    unrealBloomPass: any
+  }
 }
 
-const LIME = '200, 255, 0'
-const LINK_DISTANCE = 130
-const CURSOR_LINK_DISTANCE = 170
+const shellThickSafe = (n: number) => 200 / Math.max(n, 1)
+const wrapHue = (h: number) => ((h % 1) + 1) % 1
 
-export default function ParticleField() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+interface SwarmProps {
+  themeColor: string
+  count: number
+  mouse: React.MutableRefObject<{ x: number; y: number }>
+}
+
+const ParticleSwarm = ({ themeColor, count, mouse }: SwarmProps) => {
+  const groupRef = useRef<THREE.Group>(null)
+  const meshRef = useRef<THREE.InstancedMesh>(null)
+  const dummy = useMemo(() => new THREE.Object3D(), [])
+  const target = useMemo(() => new THREE.Vector3(), [])
+  const color = useMemo(() => new THREE.Color(), [])
+
+  const base = useMemo(() => {
+    const hsl = { h: 0, s: 0, l: 0 }
+    new THREE.Color(themeColor).getHSL(hsl)
+    return hsl
+  }, [themeColor])
+
+  const positions = useMemo(() => {
+    const pos: THREE.Vector3[] = []
+    for (let i = 0; i < count; i++)
+      pos.push(
+        new THREE.Vector3(
+          (Math.random() - 0.5) * 100,
+          (Math.random() - 0.5) * 100,
+          (Math.random() - 0.5) * 100
+        )
+      )
+    return pos
+  }, [count])
+
+  const material = useMemo(() => new THREE.MeshBasicMaterial({ color: 0xffffff }), [])
+  const geometry = useMemo(() => new THREE.TetrahedronGeometry(0.25), [])
+
+  const blastRadius = 70
+  const shockSpeed = 6
+  const coreFlash = 5
+  const debris = 1.8
+  const shellCount = 2.84
+  const orbitGap = 12
+  const orbitSpeed = 1.5
+
+  useFrame((state) => {
+    if (!meshRef.current) return
+    const time = state.clock.getElapsedTime()
+
+    // cursor ke hisaab se rotation (smooth)
+    if (groupRef.current) {
+      const targetY = mouse.current.x * 0.9 + time * 0.05
+      const targetX = mouse.current.y * 0.6
+      groupRef.current.rotation.y += (targetY - groupRef.current.rotation.y) * 0.04
+      groupRef.current.rotation.x += (targetX - groupRef.current.rotation.x) * 0.04
+    }
+
+    for (let i = 0; i < count; i++) {
+      const isRemnant = i / count < 0.03 ? 1 : 0
+      const seedA = Math.sin(i * 12.9898) * 43758.5453
+      const randA = seedA - Math.floor(seedA)
+      const seedB = Math.sin(i * 78.233 + 3.1) * 12345.678
+      const randB = seedB - Math.floor(seedB)
+      const seedC = Math.sin(i * 45.164 + 7.7) * 98765.432
+      const randC = seedC - Math.floor(seedC)
+
+      const starPick = i % 2
+      const orbitAngle = time * orbitSpeed + starPick * Math.PI
+      const remX = Math.cos(orbitAngle) * orbitGap * starPick
+      const remY = Math.sin(orbitAngle * 0.6) * orbitGap * 0.3 * starPick
+      const remZ = Math.sin(orbitAngle) * orbitGap * starPick
+      const remJitter = (randA - 0.5) * 3
+
+      const phi = randA * Math.PI * 2
+      const costh = randB * 2 - 1
+      const sinth = Math.sqrt(Math.max(0, 1 - costh * costh))
+      const dirX = sinth * Math.cos(phi)
+      const dirY = costh
+      const dirZ = sinth * Math.sin(phi)
+
+      const shellId = Math.floor(randC * shellCount)
+      const shellOffset = shellId * shellThickSafe(shellCount)
+      const cycleSpan = blastRadius + shellOffset + 10
+      const dist = (time * shockSpeed + randC * 10 + shellOffset * 3) % cycleSpan
+      const wobble =
+        Math.sin(dist * 0.3 + time * 2 + i * 0.05) * debris * (dist / (blastRadius + 1))
+      const shockPulse = 0.5 + 0.5 * Math.sin(time * 2 - dist * 0.15 + shellId * 2)
+
+      target.set(
+        isRemnant ? remX + remJitter : dirX * dist + wobble,
+        isRemnant ? remY + remJitter : dirY * dist + wobble * 0.8,
+        isRemnant ? remZ + remJitter : dirZ * dist + wobble
+      )
+
+      const coreProximity = Math.max(0, 1 - dist / 16)
+      const shellFactor = Math.max(
+        0,
+        1 - Math.abs((dist % (cycleSpan / shellCount)) - 8) / 8
+      )
+
+      const hue = isRemnant
+        ? starPick === 0
+          ? base.h
+          : wrapHue(base.h - 0.04)
+        : wrapHue(base.h + 0.01 - coreProximity * 0.02 - shellFactor * 0.02)
+      const sat = isRemnant ? base.s : Math.max(base.s - coreProximity * 0.3, 0.4)
+      const light = isRemnant
+        ? Math.min(0.55 + coreFlash * 0.05, 0.8)
+        : Math.min(
+            0.25 + coreProximity * coreFlash * 0.25 + shellFactor * shockPulse * 0.3,
+            0.85
+          )
+      color.setHSL(hue, sat, light)
+
+      positions[i].lerp(target, 0.1)
+      dummy.position.copy(positions[i])
+      dummy.updateMatrix()
+      meshRef.current.setMatrixAt(i, dummy.matrix)
+      meshRef.current.setColorAt(i, color)
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true
+    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true
+  })
+
+  return (
+    <group ref={groupRef}>
+      <instancedMesh ref={meshRef} args={[geometry, material, count]} />
+    </group>
+  )
+}
+
+interface ParticleFieldProps {
+  themeColor?: string
+  count?: number
+  opacity?: number
+}
+
+export default function ParticleField({
+  themeColor = '#a3e635',
+  count = 12000,
+  opacity = 0.6,
+}: ParticleFieldProps) {
+  const mouse = useRef({ x: 0, y: 0 })
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    const container = containerRef.current
-    if (!canvas || !container) return
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    const prefersReducedMotion = window.matchMedia(
-      '(prefers-reduced-motion: reduce)'
-    ).matches
-
-    let particles: Particle[] = []
-    let width = 0
-    let height = 0
-    let dpr = Math.min(window.devicePixelRatio || 1, 2)
-    let rafId = 0
-    let running = true
-
-    const mouse = { x: -9999, y: -9999, active: false }
-
-    const isMobile = () => window.innerWidth < 768
-
-    const particleCount = () => (isMobile() ? 34 : 70)
-
-    const buildParticles = () => {
-      const count = particleCount()
-      particles = Array.from({ length: count }, () => ({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.25,
-        vy: (Math.random() - 0.5) * 0.25,
-        r: Math.random() * 1.4 + 0.6,
-      }))
+    const onMove = (e: MouseEvent) => {
+      mouse.current.x = (e.clientX / window.innerWidth) * 2 - 1
+      mouse.current.y = (e.clientY / window.innerHeight) * 2 - 1
     }
-
-    const resize = () => {
-      width = container.clientWidth
-      height = container.clientHeight
-      dpr = Math.min(window.devicePixelRatio || 1, 2)
-      canvas.width = width * dpr
-      canvas.height = height * dpr
-      canvas.style.width = `${width}px`
-      canvas.style.height = `${height}px`
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      buildParticles()
-    }
-
-    const onMouseMove = (e: MouseEvent) => {
-      const rect = container.getBoundingClientRect()
-      mouse.x = e.clientX - rect.left
-      mouse.y = e.clientY - rect.top
-      mouse.active = true
-    }
-    const onMouseLeave = () => {
-      mouse.active = false
-    }
-
-    const draw = () => {
-      ctx.clearRect(0, 0, width, height)
-
-      // update + draw particles
-      for (const p of particles) {
-        if (!prefersReducedMotion) {
-          p.x += p.vx
-          p.y += p.vy
-          if (p.x < 0 || p.x > width) p.vx *= -1
-          if (p.y < 0 || p.y > height) p.vy *= -1
-        }
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(${LIME}, 0.55)`
-        ctx.fill()
-      }
-
-      // links between nearby particles
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const a = particles[i]
-          const b = particles[j]
-          const dx = a.x - b.x
-          const dy = a.y - b.y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist < LINK_DISTANCE) {
-            const alpha = (1 - dist / LINK_DISTANCE) * 0.16
-            ctx.beginPath()
-            ctx.moveTo(a.x, a.y)
-            ctx.lineTo(b.x, b.y)
-            ctx.strokeStyle = `rgba(${LIME}, ${alpha})`
-            ctx.lineWidth = 1
-            ctx.stroke()
-          }
-        }
-      }
-
-      // links from cursor to nearby particles
-      if (mouse.active) {
-        for (const p of particles) {
-          const dx = p.x - mouse.x
-          const dy = p.y - mouse.y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist < CURSOR_LINK_DISTANCE) {
-            const alpha = (1 - dist / CURSOR_LINK_DISTANCE) * 0.35
-            ctx.beginPath()
-            ctx.moveTo(p.x, p.y)
-            ctx.lineTo(mouse.x, mouse.y)
-            ctx.strokeStyle = `rgba(${LIME}, ${alpha})`
-            ctx.lineWidth = 1
-            ctx.stroke()
-          }
-        }
-        ctx.beginPath()
-        ctx.arc(mouse.x, mouse.y, 2, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(${LIME}, 0.8)`
-        ctx.fill()
-      }
-
-      if (running) rafId = requestAnimationFrame(draw)
-    }
-
-    resize()
-    draw()
-
-    const onResize = () => resize()
-    window.addEventListener('resize', onResize)
-    window.addEventListener('mousemove', onMouseMove)
-    container.addEventListener('mouseleave', onMouseLeave)
-
-    // pause the loop when the hero is off-screen (perf on long pages)
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        running = entry.isIntersecting
-        if (running) rafId = requestAnimationFrame(draw)
-        else cancelAnimationFrame(rafId)
-      },
-      { threshold: 0 }
-    )
-    observer.observe(container)
-
-    return () => {
-      running = false
-      cancelAnimationFrame(rafId)
-      window.removeEventListener('resize', onResize)
-      window.removeEventListener('mousemove', onMouseMove)
-      container.removeEventListener('mouseleave', onMouseLeave)
-      observer.disconnect()
-    }
+    window.addEventListener('mousemove', onMove)
+    return () => window.removeEventListener('mousemove', onMove)
   }, [])
 
   return (
-    <div ref={containerRef} className="absolute inset-0">
-      <canvas ref={canvasRef} className="block w-full h-full" />
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: 'none',
+        opacity,
+        mixBlendMode: 'screen',
+      }}
+    >
+      <Canvas dpr={[1, 1.5]} camera={{ position: [0, 0, 100], fov: 60 }}>
+        <color attach="background" args={['#000000']} />
+        <ParticleSwarm themeColor={themeColor} count={count} mouse={mouse} />
+        <Effects disableGamma>
+          <unrealBloomPass threshold={0} strength={1.1} radius={0.4} />
+        </Effects>
+      </Canvas>
     </div>
-  )
-}
+  )}

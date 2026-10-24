@@ -30,6 +30,7 @@ export default function Hero({ startAnimation = false }: HeroProps) {
   const [displayText, setDisplayText] = useState('')
   const [isTyping, setIsTyping] = useState(true)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Fire animation only when preloader is done
   useEffect(() => {
@@ -44,41 +45,17 @@ export default function Hero({ startAnimation = false }: HeroProps) {
     })
 
     tlRef.current
-      .to(labelRef.current, {
-        opacity: 1,
-        y: 0,
-        duration: 0.8,
-        ease: 'power3.out',
-      })
-      .to(
-        h1Ref.current,
-        { opacity: 1, y: 0, duration: 1, ease: 'power3.out' },
-        '-=0.5'
-      )
-      .to(
-        subRef.current,
-        { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' },
-        '-=0.6'
-      )
-      .to(
-        ctaRef.current,
-        { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' },
-        '-=0.5'
-      )
-      .to(
-        badgeRef.current,
-        { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' },
-        '-=0.4'
-      )
-      .to(
-        scrollRef.current,
-        { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' },
-        '-=0.3'
-      )
+      .to(labelRef.current, { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' })
+      .to(h1Ref.current, { opacity: 1, y: 0, duration: 1, ease: 'power3.out' }, '-=0.5')
+      .to(subRef.current, { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }, '-=0.6')
+      .to(ctaRef.current, { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }, '-=0.5')
+      .to(badgeRef.current, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, '-=0.4')
+      .to(scrollRef.current, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, '-=0.3')
 
     return () => {
+      // sirf Hero ka trigger kill hoga, baaki sections ke nahi
+      tlRef.current?.scrollTrigger?.kill()
       tlRef.current?.kill()
-      ScrollTrigger.getAll().forEach((t) => t.kill())
     }
   }, [startAnimation])
 
@@ -93,23 +70,24 @@ export default function Hero({ startAnimation = false }: HeroProps) {
           setDisplayText(word.slice(0, charIndex))
           charIndex++
         } else {
-          setTimeout(() => setIsTyping(false), 1800)
           if (intervalRef.current) clearInterval(intervalRef.current)
+          timeoutRef.current = setTimeout(() => setIsTyping(false), 1800)
         }
       } else {
         if (charIndex >= 0) {
           setDisplayText(word.slice(0, charIndex))
           charIndex--
         } else {
+          if (intervalRef.current) clearInterval(intervalRef.current)
           setWordIndex((prev) => (prev + 1) % rotatingWords.length)
           setIsTyping(true)
-          if (intervalRef.current) clearInterval(intervalRef.current)
         }
       }
     }, isTyping ? 80 : 40)
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
   }, [wordIndex, isTyping])
 
@@ -153,7 +131,7 @@ export default function Hero({ startAnimation = false }: HeroProps) {
               'radial-gradient(circle, rgba(163,230,53,0.25) 0%, transparent 75%)',
           }}
         />
-        <ParticleField />
+        <ParticleField themeColor="#a3e635" />
         <div className="absolute inset-0 noise opacity-[0.035]" />
         <div
           className="absolute inset-0"
@@ -211,7 +189,13 @@ export default function Hero({ startAnimation = false }: HeroProps) {
             className="group inline-flex items-center gap-2 px-7 py-3.5 bg-lime text-black font-mono text-sm font-medium tracking-wide rounded transition-all duration-300 hover:bg-white"
           >
             View My Work
-            <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
             </svg>
           </a>
