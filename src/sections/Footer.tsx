@@ -15,12 +15,8 @@ export default function Footer() {
           NAZISH
         </span>
         <span className="font-mono text-xs tracking-wide text-text-secondary">
-          Designed & Built by me
-        </span>
-        <span className="font-mono text-xs tracking-wide text-text-secondary">
           2024
         </span>
       </div>
     </footer>
-  )
-}
+  )}
